@@ -30,27 +30,20 @@ object CloudProviderService {
 
   val OAuthServiceId = "oauth"
 
-  def tokenForProvider(cp: CloudProviderInstance): DB[OAuthTokenState] = {
+  def tokenUrlForProvider(cp: CloudProviderInstance): IO[Uri] = {
     cp.serviceUris
       .get(OAuthServiceId)
       .map { oauthService =>
-        dbLiftIO
-          .liftIO(
-            IO.fromEither(UriTemplateService.replaceVariables(oauthService.uri, cp.baseUrl, Map())))
-          .flatMap { uri =>
-            OAuthClientService.tokenForClient(uri.toString,
-                                              cp.providerAuth.clientId,
-                                              cp.providerAuth.clientSecret)
-          }
+        IO.fromEither(UriTemplateService.replaceVariables(oauthService.uri, cp.baseUrl, Map()))
       }
-      .getOrElse(dbLiftIO.liftIO(IO.raiseError(new Throwable("No OAuth service URL"))))
+      .getOrElse(IO.raiseError(new Throwable("No OAuth service URL")))
   }
 
   def proxyRequest(uuid: UUID, serviceId: String): DB[String] = {
     CloudProviderDB
       .get(uuid)
-      .flatMap { cp =>
-        val tempCP = cp.copy(
+      .flatMap { _cp =>
+        val cp = _cp.copy(
           baseUrl = "http://localhost:8083/provider/",
           serviceUris = Map(
             "oauth" -> ServiceUri("${baseurl}access_token", authenticated = false),
@@ -59,26 +52,25 @@ object CloudProviderService {
           providerAuth = CloudOAuthCredentials("aadd359a-3478-484f-8aca-97b18901bcd9",
                                                "985477ca-52ee-400d-a162-7ad403149352")
         )
-        OptionT.fromOption[DB](tempCP.serviceUris.get(serviceId)).semiflatMap {
+        OptionT.fromOption[DB](cp.serviceUris.get(serviceId)).semiflatMap {
           case ServiceUri(uriTemplate, auth) =>
             for {
               uri <- dbLiftIO.liftIO {
-                IO.fromEither(
-                  UriTemplateService.replaceVariables(uriTemplate, tempCP.baseUrl, Map()))
+                IO.fromEither(UriTemplateService.replaceVariables(uriTemplate, cp.baseUrl, Map()))
               }
               req = sttp.get(uri)
               response <- if (auth) {
-                tokenForProvider(tempCP).flatMap { token =>
-                  dbLiftIO.liftIO {
-                    OAuthClientService.requestWithToken(req, token.token, token.tokenType)
-                  }
+                dbLiftIO.liftIO(tokenUrlForProvider(cp)).flatMap { oauthUrl =>
+                  OAuthClientService.authorizedRequest(oauthUrl.toString,
+                                                       cp.providerAuth.clientId,
+                                                       cp.providerAuth.clientSecret,
+                                                       req)
                 }
-              } else dbLiftIO.liftIO { req.send() }
-
-            } yield response.unsafeBody
+              } else dbLiftIO.liftIO(req.send())
+            } yield response.body.fold(identity, identity)
         }
       }
-      .getOrElse("")
+      .getOrElse("No such cloud provider")
   }
 
 }

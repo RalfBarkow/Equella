@@ -163,16 +163,17 @@ object OAuthClientService {
   private def tokenStillValid(token: OAuthTokenState): Boolean =
     token.expires.isEmpty || token.expires.exists(_.isAfter(Instant.now))
 
-  def tokenForClient(authTokenUrl: String,
-                     clientId: String,
-                     clientSecret: String): DB[OAuthTokenState] = {
-    val tokenRequest = TokenRequest(authTokenUrl, clientId, clientSecret)
+  def removeToken(tokenRequest: TokenRequest): DB[Unit] = {
+    OAuthTokenCache.removeFromDB(tokenRequest) *>
+      clientTokenCache.invalidate(tokenRequest).flatMap(dbLiftIO.liftIO)
+  }
+
+  def tokenForClient(tokenRequest: TokenRequest): DB[OAuthTokenState] = {
     for {
       cachedToken <- clientTokenCache.get(tokenRequest)
       refreshedToken <- if (tokenStillValid(cachedToken)) cachedToken.pure[DB]
       else {
-        OAuthTokenCache.removeFromDB(tokenRequest) *>
-          clientTokenCache.invalidate(tokenRequest).flatMap(dbLiftIO.liftIO) *>
+        removeToken(tokenRequest) *>
           OAuthTokenCache.requestTokenAndSave(tokenRequest)
       }
     } yield refreshedToken
@@ -188,5 +189,17 @@ object OAuthClientService {
         OAuthWebConstants.HEADER_AUTHORIZATION -> s"${OAuthWebConstants.AUTHORIZATION_BEARER} $token"
     }
     request.headers(authHeader).send[IO]()
+  }
+
+  def authorizedRequest[T](authTokenUrl: String,
+                           clientId: String,
+                           clientSecret: String,
+                           request: Request[T, Stream[IO, ByteBuffer]]): DB[Response[T]] = {
+    val tokenRequest = TokenRequest(authTokenUrl, clientId, clientSecret)
+    for {
+      token    <- tokenForClient(tokenRequest)
+      response <- dbLiftIO.liftIO(requestWithToken(request, token.token, token.tokenType))
+      _        <- if (response.code == StatusCodes.Unauthorized) removeToken(tokenRequest) else ().pure[DB]
+    } yield response
   }
 }

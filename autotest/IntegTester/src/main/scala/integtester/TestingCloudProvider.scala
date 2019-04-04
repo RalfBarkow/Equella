@@ -1,5 +1,8 @@
 package integtester
 
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+
 import cats.data.{Kleisli, OptionT}
 import cats.effect.IO
 import io.circe.syntax._
@@ -11,6 +14,7 @@ import scalaoauth2.provider._
 import cats.syntax.semigroupk._
 
 import scala.concurrent.Future
+import scala.collection.JavaConverters._
 
 class TestUser
 
@@ -65,7 +69,7 @@ object TestingCloudProvider extends Http4sDsl[IO] {
 
   val oauthService = tokenService <+> middleware(protectedService)
 
-  val singleToken = AccessToken("MYTOKEN", None, None, None, new java.util.Date(), Map.empty)
+  val tokenMap = new ConcurrentHashMap[String, AccessToken].asScala
 
   object TestTokenEndpoint extends TokenEndpoint with DataHandler[TestUser] {
 
@@ -82,11 +86,16 @@ object TestingCloudProvider extends Http4sDsl[IO] {
     }
 
     override def createAccessToken(authInfo: AuthInfo[TestUser]): Future[AccessToken] = {
-      Future.successful(singleToken)
+      Future.successful {
+        val newToken    = UUID.randomUUID().toString
+        val accessToken = AccessToken(newToken, None, None, Some(2000), new java.util.Date())
+        tokenMap.put(newToken, accessToken)
+        accessToken
+      }
     }
 
     override def getStoredAccessToken(authInfo: AuthInfo[TestUser]): Future[Option[AccessToken]] = {
-      Future.successful(Some(singleToken))
+      Future.successful(None)
     }
 
     override def refreshAccessToken(authInfo: AuthInfo[TestUser],
@@ -105,7 +114,9 @@ object TestingCloudProvider extends Http4sDsl[IO] {
     }
 
     override def findAccessToken(token: String): Future[Option[AccessToken]] = {
-      Future.successful(Some(singleToken))
+      Future.successful {
+        tokenMap.get(token)
+      }
     }
 
   }
