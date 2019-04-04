@@ -23,10 +23,12 @@ libraryDependencies ++= Seq(
 ).map(_ % CirceVersion)
 
 libraryDependencies ++= Seq(
-  "org.http4s" %% "http4s-blaze-server" % Http4sVersion,
-  "org.http4s" %% "http4s-dsl"          % Http4sVersion,
-  "org.slf4j"  % "slf4j-simple"         % "1.7.25",
-  "org.jsoup"  % "jsoup"                % jsoupVersion
+  "org.http4s"    %% "http4s-blaze-server" % Http4sVersion,
+  "org.http4s"    %% "http4s-dsl"          % Http4sVersion,
+  "org.http4s"    %% "http4s-circe"        % Http4sVersion,
+  "org.slf4j"     % "slf4j-simple"         % "1.7.25",
+  "org.jsoup"     % "jsoup"                % jsoupVersion,
+  "com.nulab-inc" %% "scala-oauth2-core"   % "1.3.0"
 )
 
 resourceGenerators in Compile += Def.task {
