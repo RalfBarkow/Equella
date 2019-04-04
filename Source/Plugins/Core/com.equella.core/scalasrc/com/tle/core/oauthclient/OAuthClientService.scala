@@ -41,8 +41,10 @@ object OAuthTokenType extends Enumeration {
 
   def fromString(s: Option[String]): Value =
     s.map {
-        case "bearer"      => Bearer
-        case "equella_api" => EquellaApi
+        _.toLowerCase match {
+          case "bearer"      => Bearer
+          case "equella_api" => EquellaApi
+        }
       }
       .getOrElse(Bearer)
 
@@ -182,6 +184,8 @@ object OAuthClientService {
     val authHeader = tokenType match {
       case OAuthTokenType.EquellaApi =>
         OAuthWebConstants.HEADER_X_AUTHORIZATION -> s"${OAuthWebConstants.AUTHORIZATION_ACCESS_TOKEN}=$token"
+      case OAuthTokenType.Bearer =>
+        OAuthWebConstants.HEADER_AUTHORIZATION -> s"${OAuthWebConstants.AUTHORIZATION_BEARER} $token"
     }
     request.headers(authHeader).send[IO]()
   }

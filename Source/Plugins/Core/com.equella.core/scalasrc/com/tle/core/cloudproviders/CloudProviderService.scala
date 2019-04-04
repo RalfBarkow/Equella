@@ -51,10 +51,10 @@ object CloudProviderService {
       .get(uuid)
       .flatMap { cp =>
         val tempCP = cp.copy(
-          baseUrl = "http://doolse-sabre:8080/my/",
+          baseUrl = "http://localhost:8083/provider/",
           serviceUris = Map(
-            "oauth"       -> ServiceUri("${baseurl}oauth/access_token", authenticated = false),
-            "currentuser" -> ServiceUri("${baseurl}api/content/currentuser", authenticated = true)
+            "oauth" -> ServiceUri("${baseurl}access_token", authenticated = false),
+            "deets" -> ServiceUri("${baseurl}getdeets", authenticated = true)
           ),
           providerAuth = CloudOAuthCredentials("aadd359a-3478-484f-8aca-97b18901bcd9",
                                                "985477ca-52ee-400d-a162-7ad403149352")
