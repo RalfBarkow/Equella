@@ -4,6 +4,7 @@
 package integtester
 
 import cats.effect.{ExitCode, IO, IOApp}
+import integtester.testprovider.TestingCloudProvider
 import io.circe.syntax._
 import org.http4s._
 import org.http4s.dsl.Http4sDsl

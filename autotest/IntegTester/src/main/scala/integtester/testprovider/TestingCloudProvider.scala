@@ -1,20 +1,20 @@
-package integtester
+package integtester.testprovider
 
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 import cats.data.{Kleisli, OptionT}
 import cats.effect.IO
+import cats.syntax.semigroupk._
 import io.circe.syntax._
 import org.http4s._
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.AuthMiddleware
 import scalaoauth2.provider._
-import cats.syntax.semigroupk._
 
-import scala.concurrent.Future
 import scala.collection.JavaConverters._
+import scala.concurrent.Future
 
 case class TestUser(clientId: String)
 
@@ -64,7 +64,27 @@ object TestingCloudProvider extends Http4sDsl[IO] {
     AuthMiddleware(authUser)
 
   val protectedService = AuthedService[TestUser, IO] {
-    case GET -> Root / "controls" as user => Ok(s"You are ${user.clientId}")
+    case GET -> Root / "controls" as user => {
+      Ok(
+        Map(
+          s"testcontrol_${user.clientId}" ->
+            Iterable(
+              CloudControlConfig("something",
+                                 "Something Field",
+                                 None,
+                                 CloudControlConfigType.Textfield,
+                                 Iterable.empty,
+                                 1,
+                                 1),
+              CloudControlConfig("somethingElse",
+                                 "Where do you want to store it?",
+                                 None,
+                                 CloudControlConfigType.XPath,
+                                 Iterable.empty,
+                                 1,
+                                 1)
+            )).asJson)
+    }
   }
 
   val oauthService = tokenService <+> middleware(protectedService)

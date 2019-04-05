@@ -37,7 +37,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import javax.swing.ButtonGroup;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
@@ -49,7 +48,7 @@ import javax.swing.JTextField;
 public class CloudControlEditor extends AbstractControlEditor<CloudControl> {
   private final CloudControl control = getWizardControl();
   private final ChangeDetector changeDetector = getChangeDetector();
-  private List<CloudControlConfig> cloudControlConfigs;
+  private Iterable<CloudControlConfig> cloudControlConfigs;
   private Map<String, CloudControlConfigControl> cloudControlConfigMap = new HashMap<>();
   private JPanel mainPanel;
   private GridBagConstraints gridBagConstraints;
@@ -59,7 +58,7 @@ public class CloudControlEditor extends AbstractControlEditor<CloudControl> {
   public CloudControlEditor(
       CloudControlDefinition definition, Control control, int wizardType, SchemaModel schema) {
     super(control, wizardType, schema);
-    this.cloudControlConfigs = definition.configDefinition();
+    this.cloudControlConfigs = definition.getConfigDefinition();
     this.cloudControlModel = control;
     setupGUI();
   }
@@ -124,7 +123,7 @@ public class CloudControlEditor extends AbstractControlEditor<CloudControl> {
       gridBagConstraints.gridy = gridY;
       JPanel configPanel = createSubPanel();
       // controlType is always non-null
-      String description = Optional.ofNullable(cloudControlConfig.description()).orElse("");
+      String description = cloudControlConfig.getDescription().orElse("");
       configPanel.setToolTipText(description);
       String configType = cloudControlConfig.configType().toString();
       String labelPostion = (configType.equals("XPath") ? BorderLayout.NORTH : BorderLayout.WEST);
@@ -183,7 +182,7 @@ public class CloudControlEditor extends AbstractControlEditor<CloudControl> {
           JComboBox<String> comboBox = new JComboBox<>();
           changeDetector.watch(comboBox);
           cloudControlConfig
-              .options()
+              .getOptions()
               .forEach(cloudConfigOption -> comboBox.addItem(cloudConfigOption.name()));
           configPanel.add(comboBox);
           cloudControlConfigMap.put(
@@ -208,7 +207,7 @@ public class CloudControlEditor extends AbstractControlEditor<CloudControl> {
           ButtonGroup radioButtonGroup = new ButtonGroup();
           JPanel radioButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
           cloudControlConfig
-              .options()
+              .getOptions()
               .forEach(
                   cloudConfigOption -> {
                     JRadioButton radioButton = new JRadioButton(cloudConfigOption.name());
@@ -246,7 +245,7 @@ public class CloudControlEditor extends AbstractControlEditor<CloudControl> {
           ArrayList<JCheckBox> checkBoxes = new ArrayList<>();
           JPanel checkBoxPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
           cloudControlConfig
-              .options()
+              .getOptions()
               .forEach(
                   cloudConfigOption -> {
                     JCheckBox checkBox = new JCheckBox(cloudConfigOption.name());
