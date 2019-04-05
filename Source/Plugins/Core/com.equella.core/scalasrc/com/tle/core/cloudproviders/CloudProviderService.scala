@@ -42,16 +42,7 @@ object CloudProviderService {
   def proxyRequest(uuid: UUID, serviceId: String): DB[String] = {
     CloudProviderDB
       .get(uuid)
-      .flatMap { _cp =>
-        val cp = _cp.copy(
-          baseUrl = "http://localhost:8083/provider/",
-          serviceUris = Map(
-            "oauth" -> ServiceUri("${baseurl}access_token", authenticated = false),
-            "deets" -> ServiceUri("${baseurl}getdeets", authenticated = true)
-          ),
-          providerAuth = CloudOAuthCredentials("aadd359a-3478-484f-8aca-97b18901bcd9",
-                                               "985477ca-52ee-400d-a162-7ad403149352")
-        )
+      .flatMap { cp =>
         OptionT.fromOption[DB](cp.serviceUris.get(serviceId)).semiflatMap {
           case ServiceUri(uriTemplate, auth) =>
             for {

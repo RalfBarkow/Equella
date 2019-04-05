@@ -16,7 +16,7 @@ import cats.syntax.semigroupk._
 import scala.concurrent.Future
 import scala.collection.JavaConverters._
 
-class TestUser
+case class TestUser(clientId: String)
 
 object TestingCloudProvider extends Http4sDsl[IO] {
 
@@ -64,12 +64,12 @@ object TestingCloudProvider extends Http4sDsl[IO] {
     AuthMiddleware(authUser)
 
   val protectedService = AuthedService[TestUser, IO] {
-    case GET -> Root / "getdeets" as user => Ok(s"Welcome, ${user}")
+    case GET -> Root / "controls" as user => Ok(s"You are ${user.clientId}")
   }
 
   val oauthService = tokenService <+> middleware(protectedService)
 
-  val tokenMap = new ConcurrentHashMap[String, AccessToken].asScala
+  val tokenMap = new ConcurrentHashMap[String, (TestUser, AccessToken)].asScala
 
   object TestTokenEndpoint extends TokenEndpoint with DataHandler[TestUser] {
 
@@ -82,14 +82,14 @@ object TestingCloudProvider extends Http4sDsl[IO] {
 
     override def findUser(maybeCredential: Option[ClientCredential],
                           request: AuthorizationRequest): Future[Option[TestUser]] = {
-      Future.successful(Some(new TestUser))
+      Future.successful(maybeCredential.map(cc => TestUser(cc.clientId)))
     }
 
     override def createAccessToken(authInfo: AuthInfo[TestUser]): Future[AccessToken] = {
       Future.successful {
         val newToken    = UUID.randomUUID().toString
         val accessToken = AccessToken(newToken, None, None, Some(2000), new java.util.Date())
-        tokenMap.put(newToken, accessToken)
+        tokenMap.put(newToken, (authInfo.user, accessToken))
         accessToken
       }
     }
@@ -110,12 +110,16 @@ object TestingCloudProvider extends Http4sDsl[IO] {
 
     override def findAuthInfoByAccessToken(
         accessToken: AccessToken): Future[Option[AuthInfo[TestUser]]] = {
-      Future.successful(Some(AuthInfo(new TestUser, None, None, None)))
+      Future.successful {
+        tokenMap.get(accessToken.token).map {
+          case (u, at) => AuthInfo(u, Some(u.clientId), None, None)
+        }
+      }
     }
 
     override def findAccessToken(token: String): Future[Option[AccessToken]] = {
       Future.successful {
-        tokenMap.get(token)
+        tokenMap.get(token).map(_._2)
       }
     }
 
